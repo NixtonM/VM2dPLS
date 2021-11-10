@@ -2,6 +2,7 @@ import logging
 import time
 from typing import Dict, Any
 import hashlib
+import numpy as np
 import json
 
 
@@ -27,3 +28,26 @@ def timeit(func):
         return result
 
     return measure_time
+
+
+def reject_outliers(data, m=2.):
+    d = np.abs(data - np.median(data))
+    mdev = np.median(d)
+    s = d/mdev if mdev else 0.
+    return s<m
+
+
+def convert_2d_polar_to_xy(distance, v_angle):
+    # v_angle in nadir direction, clockwise in rad
+    alpha = np.float64(np.mod(3/2*np.pi - v_angle, 2*np.pi))
+    x = distance * np.cos(alpha)
+    y = distance * np.sin(alpha)
+    return np.array([x, y])
+
+
+def convert_xy_to_2d_polar(x, y):
+    # v_angle in nadir direction, clockwise in rad
+    distance = np.hypot(x, y)
+    v_angle = np.arctan2(-x, -y)
+    return np.array([distance, v_angle])
+
