@@ -6,14 +6,12 @@ from pathlib import Path
 import pickle
 import re
 from typing import Union, Tuple
-from VM2dPLS.data import MeasurementGroupZF5016, ProfileMeasurementGroup
+from VM2dPLS.data import MeasurementGroupZF5016, ScanMeasurementGroup
 from VM2dPLS.utility import timeit
 
 
-class ProfileHandler(ABC):
+class ScanHandler(ABC):
 
-    # def __init__(self, filepath: Union[str, Path],
-    #              cache_interim: bool = False, restart_from_cache: bool = False):
     def __init__(self, handler_args: dict):
         self._handler_args = handler_args
         self.measurement_file_path = Path(handler_args['filepath'])
@@ -25,27 +23,41 @@ class ProfileHandler(ABC):
     def load_data(self):
         pass
 
+    @abstractmethod
     def save_last_interim(self):
         pass
 
+    @abstractmethod
+    def load_from_interim(self):
+        pass
 
-class ProfileHandlerZF5016(ProfileHandler):
+    @abstractmethod
+    def hash_run_parameters(self):
+        pass
+
+
+class ScanHandlerZF5016(ScanHandler):
 
     def __init__(self, handler_args: dict):
         super().__init__(handler_args)
 
         self.meta_file_path = Path(handler_args['filepath_meta'])
-        self.time_region_of_interest = tuple(timedelta(seconds=t) for t in handler_args['time_window'])
+        if handler_args['time_window'] is not None:
+            self.time_region_of_interest = tuple(timedelta(seconds=t) for t in handler_args['time_window'])
+        else:
+            self.time_region_of_interest = None
 
     def load_data(self, is_ascii: bool = True):
-        self.load_from_interim()
-        if not self.profiles:
+        ##TODO: Add possibility to start at specific intermediate step
+        if self.restart_from_cache:
+            last_step = self.load_from_last_interim()
+        if not self.restart_from_cache or last_step < 0:
+            last_step = 0
             if is_ascii:
                 self.load_data_from_ascii()
             else:
                 pass
-        ## TODO: Restructure load and save interim: SEPARATE
-        self.save_last_interim(0)
+        return last_step
 
     @timeit
     def load_data_from_ascii(self):
@@ -58,7 +70,7 @@ class ProfileHandlerZF5016(ProfileHandler):
         measurements.profile_and_point_id_calculation_ZF()
         measurements.timestamp_interpolation(start_time, end_time)
 
-        if self.time_region_of_interest:
+        if self.time_region_of_interest is not None:
             if isinstance(self.time_region_of_interest[0], timedelta):
                 self.time_region_of_interest = tuple(start_time + t for t in self.time_region_of_interest)
             measurements.time_filter(*self.time_region_of_interest)
@@ -67,9 +79,20 @@ class ProfileHandlerZF5016(ProfileHandler):
         measurements.sort_by_profile_and_point_id()
 
         # TODO: assumption that every profile has at least some measurements
-        profiles = ProfileMeasurementGroup.split_by_profile_id(measurements)
+        profiles = ScanMeasurementGroup.split_by_profile_id(measurements)
+
+        # Remove start and end profile as they most likely are incomplete
+        profile_keys = profiles.data.keys()
+        first_profile_key, last_profile_key = min(profile_keys), max(profile_keys)
+
+        profiles.remove_data_entries((first_profile_key, last_profile_key))
+
+        # profiles.remove_profiles_with_fewer_points()
 
         self.profiles = profiles
+
+        if self.cache_interim:
+            self.save_last_interim(step_number=0)
 
     def get_timestamps_from_meta(self) -> Tuple[datetime, datetime]:
         meta_file_path = Path(self.meta_file_path)
@@ -86,8 +109,8 @@ class ProfileHandlerZF5016(ProfileHandler):
             return
         interim_results_folder = self.measurement_file_path.parent / self.measurement_file_path.stem / 'interim_results'
         interim_results_folder.mkdir(parents=True, exist_ok=True)
-        config_hash = sha256({k: self._handler_args[k] for k in ('filepath', 'scanner_type', 'time_window')
-                              if k in self._handler_args})
+        config_hash = self.hash_run_parameters()
+
         if not list(interim_results_folder.glob('*' + str(config_hash))):
             config_files = list(interim_results_folder.glob('config_run_*'))
             already_used_numbers = [int(re.findall(r"config_run_(\d{3})", fn)[0])
@@ -107,27 +130,38 @@ class ProfileHandlerZF5016(ProfileHandler):
         with (config_folder / f"{step_number:02d}.pkl").open('wb') as pkl_file:
             pickle.dump(self.profiles, pkl_file)
 
-        print(1)
+    def get_interim_config_folder(self) -> Path:
+        interim_results_folder = self.measurement_file_path.parent / self.measurement_file_path.stem / 'interim_results'
+        interim_results_folder.mkdir(parents=True, exist_ok=True)
+        config_hash = self.hash_run_parameters()
+        if list(interim_results_folder.glob('*' + str(config_hash))):
+            config_folder = list(interim_results_folder.glob('*' + str(config_hash)))[0]
+            return config_folder
+
+    def load_from_last_interim(self) -> int:
+        ## TODO: Catch if no intermediate available
+        config_folder = self.get_interim_config_folder()
+        if config_folder is not None:
+            all_interim_steps = [int(p.stem) for p in config_folder.glob('[0-9]*.pkl')]
+            last_step = max(all_interim_steps)
+
+            self.load_from_interim(last_step)
+            return last_step
+        else:
+            return -1
+
+
 
     @timeit
     def load_from_interim(self, step_number=0):
         interim_results_folder = self.measurement_file_path.parent / self.measurement_file_path.stem / 'interim_results'
         interim_results_folder.mkdir(parents=True, exist_ok=True)
-        config_hash = sha256({k: self._handler_args[k] for k in ('filepath', 'scanner_type', 'time_window')
-                              if k in self._handler_args})
+        config_hash = self.hash_run_parameters()
         if list(interim_results_folder.glob('*' + str(config_hash))):
             config_folder = list(interim_results_folder.glob('*' + str(config_hash)))[0]
             with (config_folder / f"{step_number:02d}.pkl").open('rb') as pkl_file:
                 self.profiles = pickle.load(pkl_file)
-            print(1)
 
-
-
-
-
-
-
-
-
-
-
+    def hash_run_parameters(self):
+        relevant_parameters = ('filepath', 'scanner_type', 'time_window')
+        return sha256({keys: self._handler_args[keys] for keys in relevant_parameters if keys in self._handler_args})
