@@ -3,7 +3,9 @@ import coloredlogs
 import logging
 from datetime import timedelta
 
-from VM2dPLS.io import ProfileHandlerZF5016
+from VM2dPLS.io import ScanHandlerZF5016
+from VM2dPLS.core import cut_to_vertical_angle_range, select_vertical_angle_range_GUI, plot_profile, animate_profiles, \
+    regional_binning, fft_profile_point
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="...")
@@ -40,7 +42,24 @@ if __name__ == '__main__':
         #                                        tuple(timedelta(seconds=t) for t in args.time_window),
         #                                        measurement_file_path=args.filepath, cache_interim=args.cache_interim,
         #                                        restart_from_cache=args.restart_from_cache)
-        profile_handler = ProfileHandlerZF5016(vars(args))
+        scan_handler = ScanHandlerZF5016(vars(args))
 
-    profile_handler.load_data(args.file_type == 'ascii')
+    last_cached_step = scan_handler.load_data(args.file_type == 'ascii')
+
+    if last_cached_step == 0:
+        theta_borders = select_vertical_angle_range_GUI(scan_handler)
+        cut_to_vertical_angle_range(scan_handler, *theta_borders)
+        plot_profile(scan_handler)
+        animate_profiles(scan_handler)
+        regional_binning(scan_handler)
+        last_cached_step = 1
+    if last_cached_step == 1:
+        # plot_profile(scan_handler)
+        #
+        fft_profile_point(scan_handler, profile_point=30)
+        # for i in range(list(scan_handler.profiles.data.values())[0].data.shape[0]):
+        #     fft_profile_point(scan_handler, profile_point=i)
+
+
     print(1)
+
