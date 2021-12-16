@@ -24,6 +24,9 @@ class MeasurementGroup:
 
         self.data = self.data.loc[mask]
 
+    def reduce_to_start_time(self, start_time : datetime):
+        self.data['timestamp'] = self.data['timestamp'] - start_time
+
     def sort_by_profile_and_point_id(self):
         self.data.sort_values(['profile_id', 'point_id'], inplace=True)
 

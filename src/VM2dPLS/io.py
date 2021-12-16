@@ -74,6 +74,7 @@ class ScanHandlerZF5016(ScanHandler):
             if isinstance(self.time_region_of_interest[0], timedelta):
                 self.time_region_of_interest = tuple(start_time + t for t in self.time_region_of_interest)
             measurements.time_filter(*self.time_region_of_interest)
+            measurements.reduce_to_start_time(self.time_region_of_interest[0])
 
         # TODO: Check if necessary..might cause runtime to explode unnecessarily
         measurements.sort_by_profile_and_point_id()

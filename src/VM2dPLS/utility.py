@@ -39,10 +39,14 @@ def reject_outliers(data, m=2.):
 
 def convert_2d_polar_to_xy(distance, v_angle):
     # v_angle in nadir direction, clockwise in rad
+
     alpha = np.float64(np.mod(3/2*np.pi - v_angle, 2*np.pi))
     x = distance * np.cos(alpha)
     y = distance * np.sin(alpha)
-    return np.array([x, y])
+    return np.array([x, y], dtype=np.float64)
+
+def convert_multi_2d_polar_to_xy(distance, v_angle):
+    return convert_2d_polar_to_xy(distance, v_angle).transpose()
 
 
 def convert_xy_to_2d_polar(x, y):
