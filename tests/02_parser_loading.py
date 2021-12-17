@@ -2,10 +2,12 @@ import argparse
 import coloredlogs
 import logging
 from datetime import timedelta
+import numpy as np
 
 from VM2dPLS.io import ScanHandlerZF5016
 from VM2dPLS.core import cut_to_vertical_angle_range, select_vertical_angle_range_GUI, plot_profile, animate_profiles, \
-    regional_binning, fft_profile_point
+    regional_binning
+from VM2dPLS.least_squares import estimate_spatial_temporal_parameters
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="...")
@@ -55,10 +57,15 @@ if __name__ == '__main__':
         last_cached_step = 1
     if last_cached_step == 1:
         # plot_profile(scan_handler)
-        #
-        fft_profile_point(scan_handler, profile_point=30)
-        # for i in range(list(scan_handler.profiles.data.values())[0].data.shape[0]):
-        #     fft_profile_point(scan_handler, profile_point=i)
+        # b0 = fft_profile_point(scan_handler, 0, True)
+        # b1 = fft_profile_point(scan_handler, 1, True)
+        # b2 = fft_profile_point(scan_handler, 2, True)
+        # a = np.array([np.array(estimate_temporal_parameters(scan_handler, profile_point=i, ))
+        #               for i in range(list(scan_handler.profiles.data.values())[0].data.shape[0])])
+        #               # for i in range(3)])
+
+        # b = estimate_spatial_parameters(scan_handler)
+        a = estimate_spatial_temporal_parameters(scan_handler)
 
 
     print(1)
