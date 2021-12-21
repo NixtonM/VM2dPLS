@@ -6,10 +6,11 @@ import numpy as np
 
 from VM2dPLS.io import ScanHandlerZF5016
 from VM2dPLS.core import cut_to_vertical_angle_range, select_vertical_angle_range_GUI, plot_profile, animate_profiles, \
-    regional_binning
+    regional_binning, plot_point_over_time
 from VM2dPLS.least_squares import estimate_spatial_temporal_parameters
 
-if __name__ == '__main__':
+
+def main():
     parser = argparse.ArgumentParser(description="...")
     parser.add_argument('filepath', type=str, help='Path to profile file')
     parser.add_argument('-s', '--scanner_type', type=str, choices=['ZF5016', 'other'], required=True,
@@ -55,6 +56,7 @@ if __name__ == '__main__':
         animate_profiles(scan_handler)
         regional_binning(scan_handler)
         last_cached_step = 1
+        plot_point_over_time(scan_handler)
     if last_cached_step == 1:
         # plot_profile(scan_handler)
         # b0 = fft_profile_point(scan_handler, 0, True)
@@ -65,8 +67,11 @@ if __name__ == '__main__':
         #               # for i in range(3)])
 
         # b = estimate_spatial_parameters(scan_handler)
+        plot_point_over_time(scan_handler)
         a = estimate_spatial_temporal_parameters(scan_handler)
-
 
     print(1)
 
+
+if __name__ == '__main__':
+    main()

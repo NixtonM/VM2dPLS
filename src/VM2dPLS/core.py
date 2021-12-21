@@ -72,12 +72,29 @@ def plot_profile(scan_handler: ScanHandler, profile_id: int = None):
     fig, ax = plt.subplots()
 
     if not profile_id:
-        profile_id = list(scan_handler.profiles.data.keys())[1]
+        profile_id = list(scan_handler.profiles.data.keys())[0]
     measurement_group = scan_handler.profiles.data[profile_id]
 
     ax.plot(*convert_2d_polar_to_xy(*measurement_group.data[['range', 'v_angle']].to_numpy().transpose()),
             linestyle='None', marker='*', markersize='2')
     plt.show()
+
+
+def plot_point_over_time(scan_handler: ScanHandler, point_id: int = None):
+    if not point_id:
+        point_id = 0
+
+    profile_point_xyt = np.array([np.hstack((
+        convert_multi_2d_polar_to_xy(*((np.array(profile_data.data[['range', 'v_angle']])).transpose())),
+        profile_data.data[['timestamp']].to_numpy(dtype=np.float64) * 1e-9
+    ))
+        for profile_data in scan_handler.profiles.data.values()])
+
+    profile_point_xyt[:, :, 2] = profile_point_xyt[:, :, 2] - profile_point_xyt[0, 0, 2]
+
+    fig, ax = plt.subplots()
+    ax.plot(*profile_point_xyt[:, point_id, (2, 1,)].transpose())
+
 
 
 def animate_profiles(scan_handler: ScanHandler):

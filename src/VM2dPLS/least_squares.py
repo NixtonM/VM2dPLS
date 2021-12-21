@@ -110,7 +110,6 @@ def calculate_residuals(profile_point_data, ampli, zeta, freq_x, phi_x, freq_t, 
     return profile_point_data
 
 
-
 def numeric_wave(afp):
     # Flip negative frequency by flipping amplitude and phase shift
     afp[:, 0] = afp[:, 0] * np.sign(afp[:, 1])
